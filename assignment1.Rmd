@@ -1,0 +1,47 @@
+---
+title: "assignment 1 stats"
+author: "Jules, Wasti, Mohammad, "
+date: "2024-02-26"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## Monte Carlo simulation
+
+```{r}
+set.seed(9)
+n <- 100 #number of observations
+p <- 50 #number of predictors for test data
+
+# first create a control data set with only two variables y and x
+# where y is dependent on x
+X <- matrix(rnorm(n), ncol=1)
+y <- 3*X + rnorm(n) #arbitrary slope of value 3
+
+fit <- lm(y ~ X)
+print(paste("1 predictor R2: ", summary(fit)$r.squared))
+print(paste("1 predictor R2 adj: ", summary(fit)$adj.r.squared))
+
+# now test data set with p predictors
+X <- matrix(rnorm(n*p), ncol=p)
+y <- 3*X[,1] + rnorm(n)
+
+fit <- lm(y ~ X)
+print(paste("p predictors R2: ", summary(fit)$r.squared))
+print(paste("p predictors R2 adj: ", summary(fit)$adj.r.squared))
+```
+
+## **Attitude data**
+
+```{r}
+data = attitude
+
+for (i in 2:ncol(data)){
+  custom_data <- data[,1:i]
+  fit <- lm(rating~., data = custom_data)
+  print(paste(i-1, "predictors R2:", summary(fit)$r.squared, ", adj R2:", summary(fit)$adj.r.squared))
+}
+```
