@@ -1,0 +1,226 @@
+---
+title: "Assignment2"
+author: "jules"
+date: "2024-03-17"
+output: pdf_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+## libraries
+
+```{r}
+library(ggplot2)
+library(tibble)
+library(knockoff)
+library(MixGHD)
+set.seed(1)
+```
+
+## part 1
+
+```{r}
+#experiment 1
+
+#initialize variables
+n <- 500 
+p <- 200
+ARcoef <- 0.5
+sigma <- 1
+n_exp <- 10000
+p_values <- numeric(n_exp)
+
+for (k in 1:n_exp) { #repeat experiment 10000 times
+  #generate X matrix, each column has a AR timeseries
+  X <- matrix(data=0, nrow=n, ncol=p)
+  for (i in 1:p) {
+    for(t in 2:n) {
+      X[t,i] <- ARcoef*X[t-1,i] + rnorm(1, mean=0, sd=sigma)
+    }
+  }
+  
+  #generate Y variable
+  Y <- rbinom(n,1,0.5)
+  
+  #fit a logistic regression
+  fit <- glm(Y~X, family = binomial)
+  p_values[k] <- summary(fit)$coefficients['X1', 'Pr(>|z|)']
+}
+```
+
+```{r}
+ggplot(data=tibble(p_values), aes(p_values)) +
+  geom_histogram(binwidth = 0.05)
+```
+
+```{r}
+#experiment 2
+
+#initialize variables
+n <- 500 
+p <- 200
+ARcoef <- 0.5
+sigma <- 1
+n_exp <- 10000
+p_values <- numeric(n_exp)
+
+for (k in 1:n_exp) { #repeat experiment 10000 times
+  #generate X matrix, each column has a AR timeseries
+  X <- matrix(data=0, nrow=n, ncol=p)
+  for (i in 1:p) {
+    for(t in 2:n) {
+      X[t,i] <- ARcoef*X[t-1,i] + rnorm(1, mean=0, sd=sigma)
+    }
+  }
+  
+  #generate Y variable
+  alpha <-  0.08*rowSums(X[,2:21]) #some intermediate variable
+  probs <- 1 / (1 + exp(-alpha))
+  Y <- rbinom(n,1,probs)
+  
+  #fit a logistic regression
+  fit <- glm(Y~X, family = binomial)
+  p_values[k] <- summary(fit)$coefficients['X1', 'Pr(>|z|)']
+}
+```
+
+```{r}
+ggplot(data=tibble(p_values), aes(p_values)) +
+  geom_histogram(binwidth = 0.05)
+```
+
+## part 3
+
+```{r}
+#initialize variables
+n <- 500 
+p <- 200
+ARcoef <- 0.5
+sigma <- 1
+
+#generate X matrix, each column has a AR timeseries
+X <- matrix(data=0, nrow=n, ncol=p)
+
+for (i in 1:p) {
+  for(t in 2:n) {
+    X[t,i] <- ARcoef*X[t-1,i] + rnorm(1, mean=0, sd=sigma)
+  }
+}
+
+alpha <-  0.4*rowSums(X[,2:21]) #some intermediate variable
+probs <- 1 / (1 + exp(-alpha))
+Y <- rbinom(n,1,probs)
+  
+
+# Apply the knockoff filter to control FDR
+results <- knockoff.filter(X=X,y=Y, knockoffs = create.second_order, statistic = stat.glmnet_coefdiff, fdr = 0.2, offset = 1)
+
+print(results) #here we can see that it is able to detect the right variables.
+```
+
+## part 4
+
+```{r}
+#experiment 1
+count <- 0 
+falsepos <- 0
+while (count < 100) {
+  #initialize variables
+  n <- 500 
+  p <- 200
+  ARcoef <- 0.5
+  sigma <- 1
+  
+  #generate X matrix, each column has a AR timeseries
+  X <- matrix(data=0, nrow=n, ncol=p)
+  
+  for (i in 1:p) {
+    for(t in 2:n) {
+      X[t,i] <- ARcoef*X[t-1,i] + rnorm(1, mean=0, sd=sigma)
+    }
+  }
+  
+  Y <- rbinom(n,1,0.5)
+    
+  
+  # Apply the knockoff filter
+  results <- knockoff.filter(X=X,y=Y, knockoffs = create.second_order, statistic = stat.glmnet_coefdiff, fdr = 0.05, offset = 1)
+  
+  #print(results)
+  if(1 %in% results$selected) {
+     falsepos <- falsepos + 1
+  }
+  count <- count + 1
+}
+
+fdr <- falsepos/count
+print(fdr)
+print(falsepos)
+```
+
+```{r}
+#experiment 2
+count <- 0 
+falsepos <- 0
+while (count < 100) {
+  #initialize variables
+  n <- 500 
+  p <- 200
+  ARcoef <- 0.5
+  sigma <- 1
+  
+  #generate X matrix, each column has a AR timeseries
+  X <- matrix(data=0, nrow=n, ncol=p)
+  
+  for (i in 1:p) {
+    for(t in 2:n) {
+      X[t,i] <- ARcoef*X[t-1,i] + rnorm(1, mean=0, sd=sigma)
+    }
+  }
+  
+  alpha <-  0.08*rowSums(X[,2:21]) #some intermediate variable
+  probs <- 1 / (1 + exp(-alpha))
+  Y <- rbinom(n,1,probs)
+    
+  
+  # Apply the knockoff filter
+  results <- knockoff.filter(X=X,y=Y, knockoffs = create.second_order, statistic = stat.glmnet_coefdiff, fdr = 0.50, offset = 1)
+  
+  #print(results)
+  if(1 %in% results$selected) {
+     falsepos <- falsepos + 1
+  }
+  count <- count + 1
+}
+
+fdr <- falsepos/count
+print(fdr)
+print(falsepos)
+```
+
+## part 5
+
+```{r}
+# test on dataset
+data <- sonar
+X <- as.matrix(data[, 1:60])
+y <- as.numeric(data[[61]]) - 1 #make variable binary
+```
+
+```{r}
+results <- knockoff.filter(X,y, knockoffs = create.second_order, statistic = stat.glmnet_coefdiff, fdr = 0.05, offset = 1)
+print(results)
+```
+
+```{r}
+fit <- glm(y~X, family = binomial)
+for (k in 1:60) {
+  string = paste0('XV', k)
+  p <- summary(fit)$coefficients[string, 'Pr(>|z|)']
+  if (p < 0.05) {
+    print(string)
+  }
+}
+```
